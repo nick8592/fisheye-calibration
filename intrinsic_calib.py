@@ -9,8 +9,8 @@ import argparse
 def main():
     parser = argparse.ArgumentParser(description='Fisheye Camera Calibration')
     
-    # Input path (positional optional)
-    parser.add_argument('input_path', nargs='?', default='./data/*.jpg', help='Input images path glob pattern (default: ./data/*.jpg)')
+    # Input path (named argument)
+    parser.add_argument('-i', '--input-path', type=str, default='./data/*.jpg', help='Input images path glob pattern (default: ./data/*.jpg)')
     
     # Calibration Parameters
     parser.add_argument('-fw', '--frame-width', type=int, default=1920, help='Frame Width (default: 1920)')
@@ -20,6 +20,10 @@ def main():
     parser.add_argument('-s', '--square-size', type=float, default=14, help='Square Size in mm (default: 14)')
     parser.add_argument('-sub', '--subpix-region', type=int, default=5, help='Subpixel Region size (default: 5)')
     parser.add_argument('-n', '--calib-number', type=int, default=5, help='Minimum number of valid frames (default: 5)')
+    parser.add_argument('-o', '--output-dir', type=str, default='results', help='Directory to save calibration results (npy files). Default: results')
+    parser.add_argument('--save-undistorted', action='store_true', help='Save undistorted images to "undistorted_images" directory.')
+    parser.add_argument('--undistort-mode', type=str, default='balance', choices=['original', 'balance'], help='Undistortion mode: "original" uses calibrated K, "balance" estimates new K. Default: balance')
+    parser.add_argument('--balance', type=float, default=0.5, help='Balance factor for "balance" mode (0.0=max crop, 1.0=full view). Default: 0.5')
 
     args = parser.parse_args()
     
@@ -117,10 +121,47 @@ def main():
     print(f"Camera Matrix (K):\n{K}")
     print(f"Distortion Coeffs (D):\n{D}")
 
-    # Save results
-    np.save('camera_K.npy', K)
-    np.save('camera_D.npy', D)
-    print("Saved K and D to camera_K.npy and camera_D.npy")
+    # Save calibration results (.npy)
+    save_dir = args.output_dir
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    np.save(os.path.join(save_dir, 'camera_K.npy'), K)
+    np.save(os.path.join(save_dir, 'camera_D.npy'), D)
+    print(f"Saved K and D to {save_dir}/camera_K.npy and {save_dir}/camera_D.npy")
+
+    # Save undistorted images if requested
+    if args.save_undistorted:
+        undist_dir = f'{args.output_dir}/undistorted_images'
+        if not os.path.exists(undist_dir):
+            os.makedirs(undist_dir)
+            
+        print(f"Saving undistorted images to {undist_dir}...")
+        
+        # Determine New Camera Matrix
+        if args.undistort_mode == 'original':
+            # Use original calibrated matrix K (may result in heavy cropping)
+            K_new = K
+            print("Using original K matrix for undistortion.")
+        else:
+            # Estimate new matrix to control field of view vs valid pixels
+            # balance=0.0 (max crop, no black borders), balance=1.0 (min crop, full FOV)
+            K_new = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(K, D, frame_size, np.eye(3), balance=args.balance)
+            print(f"Using new estimated K matrix with balance={args.balance}")
+
+        map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K_new, frame_size, cv2.CV_16SC2)
+        
+        for fname in images:
+            img = cv2.imread(fname)
+            if img is None: continue
+            
+            undistorted_img = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+            
+            base_name = os.path.basename(fname)
+            save_path = os.path.join(undist_dir, f"{base_name}")
+            cv2.imwrite(save_path, undistorted_img)
+            
+        print("Undistorted images saved.")
 
 if __name__ == '__main__':
     main()

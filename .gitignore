@@ -11,3 +11,5 @@ data/
 
 # Calibration results
 *.npy
+results/
+results/undistorted_images/
