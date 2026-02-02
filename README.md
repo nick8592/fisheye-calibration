@@ -28,12 +28,25 @@ python intrinsic_calib.py
 python intrinsic_calib.py "Images/cam0/*.jpg"
 ```
 
+### Custom calibration parameters:
+```bash
+python intrinsic_calib.py "Images/cam0/*.jpg" -bw 18 -bh 13 -s 14
+```
+
 ## Parameters
 
-The calibration parameters are hardcoded in `intrinsic_calib.py`:
-- **Frame Size**: 1920x1536
-- **Checkerboard**: 18x13 (internal corners)
-- **Square Size**: 14mm
+Calibration parameters can now be passed as arguments:
+
+| Argument | Flag | Default | Description |
+|----------|------|---------|-------------|
+| `input_path` | (pos) | `./data/*.jpg` | Input images path glob pattern |
+| `--frame-width` | `-fw` | `1920` | Frame Width |
+| `--frame-height` | `-fh` | `1536` | Frame Height |
+| `--board-width` | `-bw` | `18` | Board Width (internal corners) |
+| `--board-height` | `-bh` | `13` | Board Height (internal corners) |
+| `--square-size` | `-s` | `14` | Square Size in mm |
+| `--subpix-region` | `-sub` | `5` | Subpixel Region size |
+| `--calib-number` | `-n` | `5` | Minimum number of valid frames |
 
 ## Output
 

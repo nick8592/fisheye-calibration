@@ -4,23 +4,26 @@ import os
 import glob
 import sys
 
-# Hardcoded Parameters
-FRAME_WIDTH = 1920
-FRAME_HEIGHT = 1536
-BOARD_WIDTH = 18   # Internal corners width
-BOARD_HEIGHT = 13  # Internal corners height
-SQUARE_SIZE = 14   # mm
-
-# Calibration settings
-SUBPIX_REGION = 5
-CALIB_NUMBER = 5 # Minimum number of valid frames required
+import argparse
 
 def main():
-    # Helper to find images. Defaults to ./data/*.jpg if no arg provided
-    if len(sys.argv) > 1:
-        img_mask = sys.argv[1]
-    else:
-        img_mask = './data/*.jpg'
+    parser = argparse.ArgumentParser(description='Fisheye Camera Calibration')
+    
+    # Input path (positional optional)
+    parser.add_argument('input_path', nargs='?', default='./data/*.jpg', help='Input images path glob pattern (default: ./data/*.jpg)')
+    
+    # Calibration Parameters
+    parser.add_argument('-fw', '--frame-width', type=int, default=1920, help='Frame Width (default: 1920)')
+    parser.add_argument('-fh', '--frame-height', type=int, default=1536, help='Frame Height (default: 1536)')
+    parser.add_argument('-bw', '--board-width', type=int, default=18, help='Board Width (internal corners) (default: 18)')
+    parser.add_argument('-bh', '--board-height', type=int, default=13, help='Board Height (internal corners) (default: 13)')
+    parser.add_argument('-s', '--square-size', type=float, default=14, help='Square Size in mm (default: 14)')
+    parser.add_argument('-sub', '--subpix-region', type=int, default=5, help='Subpixel Region size (default: 5)')
+    parser.add_argument('-n', '--calib-number', type=int, default=5, help='Minimum number of valid frames (default: 5)')
+
+    args = parser.parse_args()
+    
+    img_mask = args.input_path
     
     images = glob.glob(img_mask)
     if not images:
@@ -32,9 +35,9 @@ def main():
     # Prepare object points (0,0,0), (1,0,0), (2,0,0) ....,(BOARD_WIDTH-1, BOARD_HEIGHT-1, 0)
     # Generate points in row-major order: (0,0), (1,0), (2,0)... then (0,1), (1,1)...
     # Shape: (N, 1, 3)
-    objp = np.array([ [(j * SQUARE_SIZE, i * SQUARE_SIZE, 0.)]
-                               for i in range(BOARD_HEIGHT) 
-                               for j in range(BOARD_WIDTH) ], dtype=np.float32)
+    objp = np.array([ [(j * args.square_size, i * args.square_size, 0.)]
+                               for i in range(args.board_height) 
+                               for j in range(args.board_width) ], dtype=np.float32)
 
     objpoints = [] # 3d point in real world space
     imgpoints = [] # 2d points in image plane.
@@ -49,14 +52,14 @@ def main():
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
         # Find the chess board corners
-        ret, corners = cv2.findChessboardCorners(gray, (BOARD_WIDTH, BOARD_HEIGHT), 
+        ret, corners = cv2.findChessboardCorners(gray, (args.board_width, args.board_height), 
             cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FAST_CHECK)
 
         if ret == True:
             objpoints.append(objp)
             
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01)
-            corners2 = cv2.cornerSubPix(gray, corners, (SUBPIX_REGION, SUBPIX_REGION), (-1,-1), criteria)
+            corners2 = cv2.cornerSubPix(gray, corners, (args.subpix_region, args.subpix_region), (-1,-1), criteria)
             imgpoints.append(corners2)
             
             valid_images += 1
@@ -64,8 +67,8 @@ def main():
         else:
             print(f"Corners NOT found in {fname}")
 
-    if valid_images < CALIB_NUMBER:
-        print(f"Not enough valid images for calibration. Found {valid_images}, need {CALIB_NUMBER}.")
+    if valid_images < args.calib_number:
+        print(f"Not enough valid images for calibration. Found {valid_images}, need {args.calib_number}.")
         sys.exit(1)
 
     print("Calibrating...")
@@ -83,8 +86,7 @@ def main():
     
     # Input frame size (width, height)
     # Assuming all images are same size as the first one found useful, or using constants.
-    # Using constants from requirements:
-    frame_size = (FRAME_WIDTH, FRAME_HEIGHT)
+    frame_size = (args.frame_width, args.frame_height)
 
     rms, K, D, rvecs, tvecs = cv2.fisheye.calibrate(
         objpoints, 
