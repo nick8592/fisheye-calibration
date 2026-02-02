@@ -20,12 +20,19 @@ Run the calibration script `intrinsic_calib.py`. By default, it looks for images
 
 ### Default usage:
 ```bash
-python intrinsic_calib.py
+python intrinsic_calib.py -i "./data/*.jpg"
 ```
 
-### Specifying image path:
+### Save results to custom folder:
 ```bash
-python intrinsic_calib.py -i "Images/cam0/*.jpg"
+# Saves .npy to calibration_data/ and undistorted images to calibration_data/undistorted_images/
+python intrinsic_calib.py -i "./data/*.jpg" -o calibration_data --save-undistorted
+```
+
+### Adjust undistortion crop:
+```bash
+# --balance 0.0 (max crop), 1.0 (max view)
+python intrinsic_calib.py -i "./data/*.jpg" --save-undistorted --balance 1.0
 ```
 
 ### Custom calibration parameters:
