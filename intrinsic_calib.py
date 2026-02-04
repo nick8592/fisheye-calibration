@@ -78,15 +78,26 @@ def main():
     print("Calibrating...")
     
     # Fisheye calibration
-    K = np.zeros((3, 3))
-    D = np.zeros((4, 1))
+    w = args.frame_width
+    h = args.frame_height
+    f_guess = w * 0.4  # Rough estimation of focal length
+    
+    K = np.array([
+        [f_guess, 0, w/2],
+        [0, f_guess, h/2],
+        [0, 0, 1]
+    ], dtype=np.float64)
+    
+    D = np.zeros((4, 1), dtype=np.float64)
+
     rvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(valid_images)]
     tvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(valid_images)]
     
     # Fisheye calibration flags
     # CALIB_FIX_SKEW: Skew coefficient (alpha) is set to zero and stays zero
     # CALIB_RECOMPUTE_EXTRINSIC: Extrinsic will be recomputed after each iteration of intrinsic optimization
-    calibration_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC | cv2.fisheye.CALIB_FIX_SKEW
+    # CALIB_USE_INTRINSIC_GUESS: Use the provided K matrix as an initial guess
+    calibration_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC | cv2.fisheye.CALIB_FIX_SKEW | cv2.fisheye.CALIB_USE_INTRINSIC_GUESS
     
     # Input frame size (width, height)
     # Assuming all images are same size as the first one found useful, or using constants.
