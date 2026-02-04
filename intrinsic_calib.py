@@ -70,7 +70,7 @@ def main():
         print(f"No images found matching: {img_mask}")
         sys.exit(1)
 
-    print(f"Found {len(images)} images. Processing...")
+    print(f"\n[1/4] Processing Images ({len(images)} files)...")
 
     # Prepare object points (0,0,0), (1,0,0), (2,0,0) ....,(BOARD_WIDTH-1, BOARD_HEIGHT-1, 0)
     # Generate points in row-major order: (0,0), (1,0), (2,0)... then (0,1), (1,1)...
@@ -81,6 +81,7 @@ def main():
 
     objpoints = [] # 3d point in real world space
     imgpoints = [] # 2d points in image plane.
+    valid_filenames = []
 
     valid_images = 0
 
@@ -101,17 +102,18 @@ def main():
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.01)
             corners2 = cv2.cornerSubPix(gray, corners, (args.subpix_region, args.subpix_region), (-1,-1), criteria)
             imgpoints.append(corners2)
+            valid_filenames.append(fname)
             
             valid_images += 1
-            print(f"Corners found in {fname}")
+            print(f"[OK]   {fname}")
         else:
-            print(f"Corners NOT found in {fname}")
+            print(f"[FAIL] {fname}")
 
     if valid_images < args.calib_number:
-        print(f"Not enough valid images for calibration. Found {valid_images}, need {args.calib_number}.")
+        print(f"\nError: Not enough valid images for calibration. Found {valid_images}, need {args.calib_number}.")
         sys.exit(1)
 
-    print("Calibrating...")
+    print(f"\n[2/4] Calibrating with {valid_images} valid images...")
     
     # Fisheye calibration
     w = args.frame_width
@@ -151,23 +153,38 @@ def main():
         (cv2.TERM_CRITERIA_EPS+cv2.TERM_CRITERIA_MAX_ITER, 30, 1e-6)
     )
 
-    print("Calibration successfully finished!")
-    print(f"RMS: {rms}")
-    
+    print("\n[3/4] Calibration Results")
+    print(f"RMS Error:          {rms}")
+
     # Calculate reprojection error
     # Metric: mean( norm(error_vector) / num_points ) per image
-
     reproj_errs = []
+    
+    # Store errors with filenames for sorting
+    error_list = []
+
     for i in range(len(objpoints)):
         corners_reproj, _ = cv2.fisheye.projectPoints(objpoints[i], rvecs[i], tvecs[i], K, D)
         err = cv2.norm(corners_reproj, imgpoints[i], cv2.NORM_L2) / len(corners_reproj)
         reproj_errs.append(err)
+        error_list.append((valid_filenames[i], err))
     
-    print(f"Reprojection Error: {np.mean(reproj_errs)}")
+    mean_error = np.mean(reproj_errs)
+    print(f"Reprojection Error: {mean_error}")
+    
+    print("\nPer-image Reprojection Errors (descending):")
+    # Sort by error descending
+    error_list.sort(key=lambda x: x[1], reverse=True)
+    
+    for fname, err in error_list:
+        print(f"  {err:.5f} - {fname}")
 
-    print(f"Camera Matrix (K):\n{K}")
-    print(f"Distortion Coeffs (D):\n{D}")
+    print("\nCamera Matrix (K):")
+    print(K)
+    print("\nDistortion Coeffs (D):")
+    print(D)
 
+    print("\n[4/4] Saving Results")
     # Save calibration results (.npy)
     save_dir = args.output_dir
     if not os.path.exists(save_dir):
