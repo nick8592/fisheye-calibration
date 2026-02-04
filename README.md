@@ -83,3 +83,4 @@ The script outputs:
   - `camera_K.npy`
   - `camera_D.npy`
 - **Undistorted Images**: Saved to `results/undistorted_images/` directory if `--save-undistorted` is used.
+- **Log File**: Console output is saved to `results/calibration_<TIMESTAMP>.log`.

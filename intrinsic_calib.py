@@ -5,6 +5,22 @@ import glob
 import sys
 
 import argparse
+import datetime
+
+class Logger(object):
+    def __init__(self, filename):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        # this flush method is needed for python 3 compatibility.
+        # this handles the flush command by doing nothing.
+        self.terminal.flush()
+        self.log.flush()
 
 def main():
     parser = argparse.ArgumentParser(description='Fisheye Camera Calibration')
@@ -26,6 +42,26 @@ def main():
     parser.add_argument('--balance', type=float, default=0.5, help='Balance factor for "balance" mode (0.0=max crop, 1.0=full view). Default: 0.5')
 
     args = parser.parse_args()
+
+    # Ensure output directory exists before logging
+    save_dir = args.output_dir
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    # Setup logging
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(save_dir, f"calibration_{timestamp}.log")
+    print(f"Logging to: {log_file}")
+    
+    # Redirect stdout and stderr to log file
+    sys.stdout = Logger(log_file)
+    sys.stderr = sys.stdout
+
+    print("="*40)
+    print("Configuration:")
+    for arg in vars(args):
+        print(f"{arg}: {getattr(args, arg)}")
+    print("="*40)
     
     img_mask = args.input_path
     
